@@ -7,46 +7,27 @@ A Model Context Protocol (MCP) server that provides access to the CanLII (Canadi
 ## Prerequisites
 
 - A CanLII API key (obtain from [CanLII API](https://api.canlii.org/))
-- Node.js and npm
-- Cloudflare Workers account (for deployment)
+- Node.js 22+ and npm (for local development)
+- An [Apify](https://apify.com/) account (for hosting)
 
-## Setup
+## Hosting on Apify
 
-### 1. Clone and Install Dependencies
+The server runs as an Apify Actor in [Standby mode](https://docs.apify.com/platform/actors/running/standby), exposing an MCP Streamable HTTP endpoint at `/mcp`.
+
+1. In Apify Console, go to **Actors → Develop new → Link Git repository** and select this repository (or run `apify push` from a local checkout with the [Apify CLI](https://docs.apify.com/cli)).
+2. In the Actor's **Source → Environment variables**, add `CANLII_API` with your CanLII API key and tick **Secret**.
+3. Click **Build**. Standby mode is enabled by `.actor/actor.json`.
+4. Your MCP endpoint is `https://<your-username>--canlii-mcp.apify.actor/mcp`. Requests must include your Apify API token as `Authorization: Bearer <APIFY_TOKEN>`.
+
+## Local Development
 
 ```bash
-git clone <repository-url>
-cd canlii-mcp
 npm install
+npm run build
+CANLII_API=your_canlii_api_key_here PORT=8080 npm start
 ```
 
-### 2. Configure Environment Variables
-
-Create a `.env` file or configure your Cloudflare Workers environment with:
-
-```bash
-CANLII_API=your_canlii_api_key_here
-```
-
-For Cloudflare Workers deployment, set the environment variable using:
-
-```bash
-wrangler secret put CANLII_API
-```
-
-### 3. Local Development
-
-```bash
-npm run dev
-```
-
-This will start the server locally at `http://localhost:8787`
-
-### 4. Deploy to Cloudflare Workers
-
-```bash
-npm run deploy
-```
+The MCP endpoint is then available at `http://localhost:8080/mcp`.
 
 ## Available Tools
 
@@ -123,40 +104,26 @@ Get citation information for cases (what cases cite this case, what this case ci
 - `metadataType` (required): "citedCases", "citingCases", or "citedLegislations"
 - Optional date filters
 
-## Connecting to Claude Desktop
+## Connecting an MCP Client
 
-1. Install the [mcp-remote proxy](https://www.npmjs.com/package/mcp-remote):
-
-   ```bash
-   npm install -g mcp-remote
-   ```
-
-2. In Claude Desktop, go to Settings > Developer > Edit Config and add:
+Add the server as a remote (Streamable HTTP) MCP server, using the Apify Standby URL and your Apify token. For example, in Claude Desktop (Settings > Developer > Edit Config) via [mcp-remote](https://www.npmjs.com/package/mcp-remote):
 
 ```json
 {
   "mcpServers": {
     "canlii": {
       "command": "npx",
-      "args": ["mcp-remote", "http://localhost:8787/sse"]
+      "args": [
+        "mcp-remote",
+        "https://<your-username>--canlii-mcp.apify.actor/mcp",
+        "--header",
+        "Authorization: Bearer ${APIFY_TOKEN}"
+      ],
+      "env": { "APIFY_TOKEN": "<your-apify-token>" }
     }
   }
 }
 ```
-
-For deployed servers, replace the URL with your Cloudflare Workers URL:
-
-```
-https://your-worker-name.your-account.workers.dev/sse
-```
-
-3. Restart Claude Desktop
-
-## Connecting to Cloudflare AI Playground
-
-1. Go to https://playground.ai.cloudflare.com/
-2. Enter your MCP server URL: `https://your-worker-name.your-account.workers.dev/sse`
-3. The CanLII tools will be available in the playground
 
 ## Usage Examples
 
@@ -222,8 +189,9 @@ await get_case_citator({
 
 ### Scripts
 
-- `npm run dev` - Start local development server
-- `npm run deploy` - Deploy to Cloudflare Workers
+- `npm run build` - Compile TypeScript to `dist/`
+- `npm start` - Start the compiled server
+- `npm run dev` - Build and start
 - `npm run format` - Format code with Biome
 - `npm run lint:fix` - Fix linting issues
 - `npm run type-check` - Run TypeScript type checking
@@ -231,10 +199,14 @@ await get_case_citator({
 ### Project Structure
 
 ```
+.actor/
+├── actor.json        # Apify Actor config (Standby mode, MCP path)
+└── input_schema.json
 src/
-├── index.ts          # Main MCP server implementation
-├── schema.ts         # Zod schemas for API responses
-└── worker-configuration.d.ts  # TypeScript declarations
+├── main.ts           # HTTP entry point (Streamable HTTP at /mcp)
+├── server.ts         # MCP server and CanLII tools
+└── schema.ts         # Zod schemas for API responses
+Dockerfile            # Apify Actor image
 ```
 
 ## API Rate Limits

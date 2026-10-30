@@ -1,0 +1,12 @@
+{
+	"actorSpecification": 1,
+	"name": "canlii-mcp",
+	"title": "CanLII MCP Server",
+	"description": "MCP server for the CanLII (Canadian Legal Information Institute) API: browse courts, case law, legislation and citations.",
+	"version": "1.0",
+	"buildTag": "latest",
+	"usesStandbyMode": true,
+	"webServerMcpPath": "/mcp",
+	"input": "./input_schema.json",
+	"dockerfile": "../Dockerfile"
+}

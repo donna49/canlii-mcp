@@ -1,4 +1,3 @@
-import { McpAgent } from "agents/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
@@ -13,19 +12,18 @@ import {
 	LegislationMetadataSchema
 } from "./schema.js";
 
-// Define our MCP agent with tools
-export class MyMCP extends McpAgent {
+// Builds an MCP server exposing the CanLII API as tools
+export class CanLIIMcp {
 	server = new McpServer({
 		name: "CanLii MCP",
 		version: "1.0.0",
-		description: "CanLII MCP Server - When using scrape_website tool, always cite the source URL in your response for proper attribution and verification."
 	});
 
 	private apiKey: string;
 
-	constructor(state: DurableObjectState, env: Env) {
-		super(state, env);
-		this.apiKey = env.CANLII_API;
+	constructor(apiKey: string) {
+		this.apiKey = apiKey;
+		this.init();
 	}
 
 	// Helper function to build URL parameters
@@ -104,7 +102,7 @@ export class MyMCP extends McpAgent {
 			.describe("The date of the decision (YYYY-MM-DD format)"),
 	};
 
-	async init() {
+	private init() {
 		this.server.tool(
 			"get_courts_and_tribunals",
 			{
@@ -376,19 +374,3 @@ export class MyMCP extends McpAgent {
 		);
 	}
 }
-
-export default {
-	fetch(request: Request, env: Env, ctx: ExecutionContext) {
-		const url = new URL(request.url);
-
-		if (url.pathname === "/sse" || url.pathname === "/sse/message") {
-			return MyMCP.serveSSE("/sse").fetch(request, env, ctx);
-		}
-
-		if (url.pathname === "/mcp") {
-			return MyMCP.serve("/mcp").fetch(request, env, ctx);
-		}
-
-		return new Response("Not found", { status: 404 });
-	},
-};
